@@ -1,7 +1,7 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
-#include "linelist.h"
+#include "../utils/list.h"
 
 struct Chunk
 {
@@ -9,9 +9,8 @@ struct Chunk
     Stores every tags/content pair of a file.
     Simplifies greatly the work of the extractor.
   */
-  struct Linelist* tags;
-  struct Linelist* content;
-  struct Chunk* next;
+  struct List* tags;
+  struct List* content;
   /*
     Chunks are in the form of a linked list to simplify their allocation in
     the scanner.

@@ -5,9 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <regex.h>
+#include <string.h>
 
 #include "chunk.h"
-#include "linelist.h"
+#include "../utils/list.h"
 
 char is_tag(char* line, char* pattern)
 {
@@ -41,7 +42,7 @@ char is_tag(char* line, char* pattern)
     }
 }
 
-struct Chunk* scan(char* file, char* pattern)
+struct List* scan(char* file, char* pattern)
 {
     FILE* fp;
     char* line = NULL;
@@ -50,8 +51,7 @@ struct Chunk* scan(char* file, char* pattern)
 
     char is_tag_before = 0;
 
-    struct Chunk* chunk_list = chunk_create();
-    struct Chunk* chunk_pointer = chunk_list;
+    struct List* chunk_list = list_create();
 
     fp = fopen(file, "r");
     if (fp == NULL)
@@ -61,7 +61,11 @@ struct Chunk* scan(char* file, char* pattern)
     }
 
     while ((read = getline(&line, &len, fp)) != -1)
-    {
+    {        
+        struct Chunk* current = chunk_list->elements[chunk_list->size - 1];
+        char* to_append = malloc(sizeof(char) * len);
+        strcpy(to_append, line);
+        
         if (is_tag(line, pattern))
         {
             /*
@@ -70,15 +74,16 @@ struct Chunk* scan(char* file, char* pattern)
             */
             if (!is_tag_before)
             {
-                chunk_pointer->next = chunk_create();
-                chunk_pointer = chunk_pointer->next;
+                list_append(chunk_list, chunk_create());
+                current = chunk_list->elements[chunk_list->size - 1];
             }
-            linelist_append(chunk_pointer->tags, line);
+
+            list_append(current->tags, to_append);
             is_tag_before = 1;
         }
         else
         {
-            linelist_append(chunk_pointer->content, line);
+            list_append(current->content, to_append);
             is_tag_before = 0;    
         }
     }
@@ -94,18 +99,23 @@ int main(int argc, char** argv)
     (void)argc;
     (void) argv;
     
-    struct Chunk* c = scan("test.txt", "bonsoir");
-    struct Chunk* c2 = c;
+    struct List* c = scan("test.txt", "bonsoir");
 
-    while (c2)
+
+    for (size_t i = 0; i < c->size; i++)
     {
+        struct Chunk* ch = c->elements[i];
         printf("tags:\n");
-        for (size_t i = 0; i < c2->tags->size; i++)
-            printf("%s\n", c2->tags->lines[i]);
-        printf("content:\n");
-        for (size_t i = 0; i < c2->content->size; i++)
-            printf("%s\n", c2->content->lines[i]);
-        c2 = c2->next;
+        for (size_t j = 0; j < ch->tags->size; j++)
+            printf("%s\n", (char*) ch->tags->elements[j]);
+        printf("\ncontent;\n");
+        for (size_t j = 0; j < ch->content->size; j++)
+            printf("%s\n", (char*) ch->content->elements[j]);
+        printf("\n\n");
     }
-    chunk_destroy(c);
-}*/
+
+    for (size_t i = 0; i < c->size; i++)
+        chunk_destroy(c->elements[i]);
+    list_destroy(c);
+}
+*/
