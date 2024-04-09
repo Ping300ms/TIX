@@ -32,3 +32,8 @@ void list_destroy(struct List* l)
   free(l->elements);
   free(l);
 }
+
+void* list_get(struct List* l, size_t index)
+{
+  return l->elements[index];
+}

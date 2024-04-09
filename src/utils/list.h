@@ -13,5 +13,6 @@ struct List
 struct List* list_create();
 void list_append(struct List* l, void* elem);
 void list_destroy(struct List* l);
+void* list_get(struct List* l, size_t index);
 
 #endif
