@@ -21,18 +21,24 @@ char is_tag(char* line, char* pattern)
         fprintf(stderr, "TIX: Could not compile tag delimiters\n");
         exit(EXIT_FAILURE);
     }
-    
     reti = regexec(&regex, line, 0, NULL, 0);
     if (!reti)
+    {
+        regfree(&regex);
         return 1;
+    }
     else if (reti == REG_NOMATCH)
+    {
+        regfree(&regex);
         return 0;
+    }
     else 
     {
         regerror(reti, &regex, msgbuf, sizeof(msgbuf));
         fprintf(stderr, "TIX: Regex match failed: %s\n", msgbuf);
+        regfree(&regex);
         exit(EXIT_FAILURE);
-    }    
+    }
 }
 
 struct Chunk* scan(char* file, char* pattern)
@@ -101,5 +107,5 @@ int main(int argc, char** argv)
             printf("%s\n", c2->content->lines[i]);
         c2 = c2->next;
     }
-}
-*/
+    chunk_destroy(c);
+}*/
