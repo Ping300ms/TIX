@@ -1,3 +1,6 @@
+#ifndef EXPECTED_H
+#define EXPECTED_H
+
 struct Expected
 {
   char* expected_out;
@@ -5,3 +8,5 @@ struct Expected
   char* expected_code;
   char* command;
 };
+
+#endif
