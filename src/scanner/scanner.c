@@ -7,6 +7,7 @@
 #include <regex.h>
 
 #include "chunk.h"
+#include "linelist.h"
 
 char is_tag(char* line, char* pattern)
 {
@@ -41,8 +42,10 @@ struct Chunk* scan(char* file, char* pattern)
     size_t len = 0;
     ssize_t read;
 
-    struct Chunk* chunk_list = malloc(sizeof(struct Chunk));
-    chunk_list->next = NULL;
+    char is_tag_before = 0;
+
+    struct Chunk* chunk_list = chunk_create();
+    struct Chunk* chunk_pointer = chunk_list;
 
     fp = fopen(file, "r");
     if (fp == NULL)
@@ -55,16 +58,48 @@ struct Chunk* scan(char* file, char* pattern)
     {
         if (is_tag(line, pattern))
         {
-            // TODO if line is a tag
+            /*
+                If the previous line was not a tag, it means the current chunk
+                is finished so we create a new one
+            */
+            if (!is_tag_before)
+            {
+                chunk_pointer->next = chunk_create();
+                chunk_pointer = chunk_pointer->next;
+            }
+            linelist_append(chunk_pointer->tags, line);
+            is_tag_before = 1;
         }
         else
         {
-            // TODO if it isn't
+            linelist_append(chunk_pointer->content, line);
+            is_tag_before = 0;    
         }
     }
-
     fclose(fp);
     free(line);
-
     return chunk_list;
 }
+
+/*
+#include <stdio.h>
+int main(int argc, char** argv)
+{
+    (void)argc;
+    (void) argv;
+    
+    struct Chunk* c = scan("test.txt", "bonsoir");
+    struct Chunk* c2 = c;
+
+    while (c2)
+    {
+        printf("tags:\n");
+        for (size_t i = 0; i < c2->tags->size; i++)
+            printf("%s\n", c2->tags->lines[i]);
+        printf("content:\n");
+        for (size_t i = 0; i < c2->content->size; i++)
+            printf("%s\n", c2->content->lines[i]);
+        c2 = c2->next;
+    }
+}
+*/
