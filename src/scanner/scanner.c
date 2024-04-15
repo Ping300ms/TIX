@@ -64,7 +64,7 @@ struct List* scan(char* file, char* pattern)
     {        
         struct Chunk* current = chunk_list->elements[chunk_list->size - 1];
         char* to_append = malloc(sizeof(char) * len);
-        strcpy(to_append, line);
+        strcpy(to_append, line); // FIXME SECURITY PROBLEM
         
         if (is_tag(line, pattern))
         {
