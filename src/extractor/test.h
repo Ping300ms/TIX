@@ -4,8 +4,11 @@
 
 struct Test
 {
-  Expected expected;
-  Actual actual;
-  Config config;
+  struct Expected* expected;
+  struct Actual* actual;
+  struct Config* config;
   char* content;
 };
+
+struct Test* test_create();
+void test_destroy(struct Test* test);
