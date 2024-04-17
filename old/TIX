@@ -1,0 +1,171 @@
+#!/bin/sh
+
+[ -z $1 ] || [ -z $2 ] && echo "Usage: ./TIX {compiler_path} {run_path}" && exit
+
+executable="$1"
+run_path="$2"
+
+[ $# -gt 3 ] && "Too much arguments" && exit
+! [ -f "$run_path" ] && ! [ -d "$run_path" ] && echo "$run_path: No such file or directory" && exit
+
+run_file="/tmp/run_file.tig"
+command_file="/tmp/command_file"
+expected_out="/tmp/expected_out"
+expected_err="/tmp/expected_err"
+expected_code="/tmp/expected_code"
+actual_out="/tmp/actual_out"
+actual_err="/tmp/actual_err"
+actual_code="/tmp/actual_err"
+diff_out="/tmp/diff_out"
+
+total_run=0
+total_fail=0
+total_crash=0
+
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+TURQUOISE="\e[36m"
+WHITE="\e[0m"
+
+TEST_TAG="[${BLUE}TEST${WHITE}]"
+FAIL_TAG="[${RED}FAIL${WHITE}]"
+PASS_TAG="[${GREEN}PASS${WHITE}]"
+WARN_TAG="[${YELLOW}WARN${WHITE}]"
+CRSH_TAG="${RED}[CRSH]${WHITE}"
+
+delete_temp_files() {
+  
+   rm -f "$run_file"
+   rm -f "$expected_out"
+   rm -f "$expected_err"
+   rm -f "$expected_code"
+   rm -f "$actual_out"
+   rm -f "$actual_err"
+   rm -f "$actual_code"
+   rm -f "$diff_out"
+}
+
+extract_fields() {
+    line="$1"
+
+    #ecode=$(echo "$line" | awk -F'"' '{print $3}' | tr -d '[:space:]')
+    #eout=$(echo "$line" | awk -F'"' '{print $5}' | tr -d '[:space:]')
+    #eerr=$(echo "$line" | awk -F'"' '{print $7}' | tr -d '[:space:]')
+    #name=$(echo "$line" | awk -F'"' '{print $9}' | tr -d '[:space:]')
+    ecode=$(echo "$line" | grep -Eo 'ECODE *= *[0-9]+' | grep -Eo '[0-9]+')
+    eout=$(echo "$line" | grep -Eo 'EOUT *= *"((\\"|[^"])*)"' | grep -Eo '"((\\"|[^"])*)"' | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/')
+    eerr=$(echo "$line" | grep -Eo 'EERR *= *"((\\"|[^"])*)"' | grep -Eo '"((\\"|[^"])*)"' | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/')
+    args=$(echo "$line" | grep -Eo 'ARGS *= *"((\\"|[^"])*)"' | grep -Eo '"((\\"|[^"])*)"' | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/')
+    name=$(echo "$line" | grep -Eo 'NAME *= *"((\\"|[^"])*)"' | grep -Eo '"((\\"|[^"])*)"' | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/')
+    command=$(echo "$line" | grep -Eo 'COMMAND *= *"((\\"|[^"])*)"' | grep -Eo '"((\\"|[^"])*)"' | sed -e 's/^"//' -e 's/"$//' -e 's/\\"/"/')
+}
+
+fill_expected_files() {
+  if [ -n "$command" ]; then
+    echo "$command" > "$command_file"
+    . "$command_file" > "$expected_out" 2> "$expected_err"
+    echo "$?" > "$expected_code"
+  else
+    echo "$eout" > "$expected_out"
+    echo "$eerr" > "$expected_err"
+    echo "$ecode" > "$expected_code"
+  fi
+}
+
+fill_actual_files() {
+  "$executable" $args "$run_file" > "$actual_out" 2> "$actual_err"
+  echo "$?" > "$actual_code" 
+}
+
+run_test() {
+    
+  echo -e "${TEST_TAG} $1"
+    total_run=$((total_run + 1))
+    success=true
+
+    fill_expected_files
+    fill_actual_files
+
+    diff --color=always -u -B "$expected_out" "$actual_out" > "$diff_out"
+    diff_code="$?"
+
+    ecode=$(<"$expected_code")
+    eerr=$(<"$expected_err")
+    aerr=$(<"$actual_err")
+    acode=$(<"$actual_code")
+  
+    if [ "$diff_code" != 0 ]; then
+        echo -e "${FAIL_TAG} Output differs on STDOUT:"
+        cat "$diff_out" | sed -e "s/\(.*\)/[----] \1/"
+        success=false
+    fi
+    if [ -n "$eerr" ] && ! [ -s "$aerr" ]; then
+        echo -e "${FAIL_TAG} Expected an output on STDERR."
+        success=false
+    fi
+    if [ -z "$eerr" ] && [ -s "$aerr" ]; then
+        echo -e "${FAIL_TAG} Did not expect an output on STDERR."
+        cat "$actual_err" | sed -e "s/\(.*\)/[----] \1/"
+        success=false
+    fi
+    if [ "$acode" != "$ecode" ]; then
+        echo -e "${FAIL_TAG} Wrong return value: expected ${ecode}, got ${acode}."
+        success=false
+    fi
+    if [ "$acode" -ge 128 ]; then
+        echo -e "${CRSH_TAG} ${RED}Unexpected crash: $((actual_code - 128)).${WHITE}"
+        total_crash=$((total_crash + 1))
+        success=false
+    fi
+
+    if "$success"; then
+        echo -e "${PASS_TAG}"
+        rm -f "$1.diff"
+    else
+        echo -e "${FAIL_TAG}"
+        rm -f "$1.diff"
+        total_fail=$((total_fail + 1))
+    fi
+}
+
+
+run_tix_sections() {
+    current_file=0
+    tix_file="$1"
+    echo -e "=========================================[${TURQUOISE}$tix_file${WHITE}]"
+    
+    while IFS= read -r p; do        
+        if [[ $p = /\*\#TIX* ]]; then
+            if [ "$current_file" != 0 ]; then
+                run_test "$name"
+            fi
+            extract_fields "$p"
+            
+            current_file="$name"
+            > "$run_file"
+        else
+            echo "$p" >> "$run_file"
+        fi
+
+    done < "$tix_file"
+    run_test "$name"
+}
+
+run_tix() {
+    if [ -d "$run_path" ]; then
+        for entry in "$run_path"/*
+        do
+            run_tix_sections "$entry"
+        done
+    else
+        run_tix_sections "$run_path"
+    fi
+    
+    echo -e "\n[${RED}TOTAL FAILED${WHITE}]: $TOTAL_FAIL"
+    echo -e "[${YELLOW}TOTAL CRASHED${WHITE}]: $TOTAL_CRSH"
+    delete_temp_files
+}
+
+run_tix
