@@ -53,6 +53,7 @@ struct List* scan(char* file, char* test_pattern, char* config_pattern)
         else if (regex_check(line, config_pattern)) // Check if tag is a config tag
         {
             list_append(current->tags, to_append);
+            current->is_config = 1;
             is_tag_before = 0;
         }
         else
