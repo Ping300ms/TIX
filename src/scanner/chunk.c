@@ -7,6 +7,7 @@ struct Chunk* chunk_create()
   struct Chunk* c = malloc(sizeof(struct Chunk));
   c->tags = list_create();
   c->content = list_create();
+  c->is_config = 0;
   return c;
 }
 

@@ -9,40 +9,9 @@
 
 #include "chunk.h"
 #include "../utils/list.h"
+#include "../utils/regutils.h"
 
-char is_tag(char* line, char* pattern)
-{
-    regex_t regex;
-    int reti;
-    char msgbuf[100];
-    
-    reti = regcomp(&regex, pattern, 0);
-    if (reti)
-    {
-        fprintf(stderr, "TIX: Could not compile tag delimiters\n");
-        exit(EXIT_FAILURE);
-    }
-    reti = regexec(&regex, line, 0, NULL, 0);
-    if (!reti)
-    {
-        regfree(&regex);
-        return 1;
-    }
-    else if (reti == REG_NOMATCH)
-    {
-        regfree(&regex);
-        return 0;
-    }
-    else 
-    {
-        regerror(reti, &regex, msgbuf, sizeof(msgbuf));
-        fprintf(stderr, "TIX: Regex match failed: %s\n", msgbuf);
-        regfree(&regex);
-        exit(EXIT_FAILURE);
-    }
-}
-
-struct List* scan(char* file, char* pattern)
+struct List* scan(char* file, char* test_pattern, char* config_pattern)
 {
     FILE* fp;
     char* line = NULL;
@@ -66,7 +35,7 @@ struct List* scan(char* file, char* pattern)
         char* to_append = malloc(sizeof(char) * len);
         strcpy(to_append, line); // FIXME SECURITY PROBLEM
         
-        if (is_tag(line, pattern))
+        if (regex_check(line, test_pattern)) // Check if tag is a test tag 
         {
             /*
                 If the previous line was not a tag, it means the current chunk
@@ -80,6 +49,11 @@ struct List* scan(char* file, char* pattern)
 
             list_append(current->tags, to_append);
             is_tag_before = 1;
+        }
+        else if (regex_check(line, config_pattern)) // Check if tag is a config tag
+        {
+            list_append(current->tags, to_append);
+            is_tag_before = 0;
         }
         else
         {

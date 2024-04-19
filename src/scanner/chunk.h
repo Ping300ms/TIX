@@ -11,6 +11,7 @@ struct Chunk
   */
   struct List* tags;
   struct List* content;
+  char is_config;
   /*
     Chunks are in the form of a linked list to simplify their allocation in
     the scanner.
