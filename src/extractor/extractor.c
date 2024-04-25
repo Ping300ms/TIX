@@ -17,6 +17,7 @@ struct Expected* get_expected(char* tag)
   expected->expected_err = regex_get(tag, "");
   expected->expected_code = regex_get(tag, "");
   expected->command = regex_get(tag, "");
+  expected->title = regex_get(tag, "");
   return expected;
 }
 

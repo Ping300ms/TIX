@@ -7,6 +7,7 @@ struct Expected
   char* expected_err;
   char* expected_code;
   char* command;
+  char* title;
 };
 
 #endif
